@@ -1,0 +1,21 @@
+{
+  "name": "seyfer/snake",
+  "description": "Simple php 7 snake game",
+  "license": "BSD-3-Clause",
+  "keywords": [
+    "snake",
+    "php"
+  ],
+  "homepage": "http://seyferseed.ru/",
+  "require": {
+    "php": ">=7.0",
+    "react/event-loop": "v0.4.2"
+  },
+  "require-dev": {
+  },
+  "autoload": {
+    "psr-4": {
+      "PHPSnake\\": "src/"
+    }
+  }
+}
