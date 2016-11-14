@@ -67,6 +67,9 @@ class SnakeGame
             }
         }
 
+        //cbreak routine disables line buffering and erase/kill character-processing
+        //no longer waiting for the enter key
+        //-echo disables the output of input characters.
         system('stty cbreak -echo');
 
         $stdin = fopen('php://stdin', 'r');

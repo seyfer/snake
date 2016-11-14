@@ -22,38 +22,119 @@ class SnakeOld
     const LEFT  = 'left';
     const RIGHT = 'right';
 
-    const COLOUR_TEXT    = "\033[31m";
-    const COLOUR_FOOD    = "\033[32m";
+    //red
+    const COLOUR_TEXT = "\033[31m";
+    //green
+    const COLOUR_FOOD = "\033[32m";
+    //blue
     const COLOUR_SNAKE_1 = "\033[33m";
+    //yellow
     const COLOUR_SNAKE_2 = "\033[34m";
 
+    //game duration
     const DURATION = 100;
 
-    private $running;
-    private $width;
-    private $height;
-    private $players;
-    private $keepAlive;
-    private $secondsRemaining;
-    private $snakes;
-    private $directions;
-    private $buffer;
-    private $food;
-    private $loser;
+    /**
+     * @var boolean
+     */
+    private $running = false;
 
-    public function __construct($players = 1, $keepAlive = false)
+    /**
+     * @var int
+     */
+    private $width = 0;
+
+    /**
+     * @var int
+     */
+    private $height = 0;
+
+    /**
+     * @var int
+     */
+    private $playersCount = 0;
+
+    /**
+     * @var bool
+     */
+    private $multiplayer = false;
+
+    /**
+     * @var bool
+     * it's a setting to remove dying from walls
+     * and add timer for game end
+     */
+    private $keepAlive = false;
+
+    /**
+     * @var int
+     */
+    private $secondsRemaining = 0;
+
+    /**
+     * @var array
+     */
+    private $snakes = [];
+
+    /**
+     * @var array
+     */
+    private $directions = [];
+
+    /**
+     * @var array
+     */
+    private $buffer = [];
+
+    /**
+     * @var array
+     */
+    private $food = [];
+
+    /**
+     * @var null|string
+     */
+    private $loser = null;
+
+    /**
+     * SnakeOld constructor.
+     * @param int $playersCount
+     * @param bool $keepAlive
+     */
+    public function __construct(int $playersCount = 1, bool $keepAlive = false)
     {
-        $this->width     = (int)exec('tput cols');
-        $this->height    = (int)exec('tput lines') - 1;
-        $this->players   = $players;
-        $this->keepAlive = $keepAlive;
+        //next two commands return terminal сols and lines
+        $this->width  = (int)exec('tput cols');
+        $this->height = (int)exec('tput lines') - 1;
+
+        $this->playersCount = $playersCount;
+        $this->keepAlive    = $keepAlive;
+
+        $this->multiplayer = $this->playersCount > 1;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isRunning(): bool
+    {
+        return $this->running;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isMultiplayer(): bool
+    {
+        return $this->multiplayer;
     }
 
     public function run()
     {
+        /*
+         * disable canonical mode and -echo disables the output of input characters.
+         */
         system('stty -icanon -echo');
-
-        $multi = $this->players > 1;
 
         while (1) {
             $this->game();
@@ -62,7 +143,7 @@ class SnakeOld
 
             echo self::COLOUR_TEXT;
 
-            if ($multi) {
+            if ($this->isMultiplayer()) {
                 if ($this->loser !== NULL) {
                     echo 'Player ' . ($this->loser + 1) . ' crashed!' . PHP_EOL . PHP_EOL;
                 }
@@ -88,6 +169,7 @@ class SnakeOld
         $loop = React\EventLoop\Factory::create();
 
         $stdin = fopen('php://stdin', 'r');
+        //non-blocking mode
         stream_set_blocking($stdin, 0);
 
         while (fgetc($stdin)) ;
@@ -95,7 +177,8 @@ class SnakeOld
         $loop->addReadStream($stdin, function ($stdin) {
             $key = ord(fgetc($stdin));
 
-            if (27 === $key) {
+            $escapeSymbol = 27;
+            if ($escapeSymbol === $key) {
                 fgetc($stdin);
                 $key = ord(fgetc($stdin));
             }
@@ -146,9 +229,9 @@ class SnakeOld
             }
         });
 
-        if ($this->keepAlive && $this->players > 1) {
+        if ($this->keepAlive && $this->playersCount > 1) {
             $loop->addPeriodicTimer(1, function () use ($loop) {
-                if ($this->running) {
+                if ($this->isRunning()) {
                     $this->secondsRemaining--;
 
                     if ($this->secondsRemaining < 0) {
@@ -170,11 +253,11 @@ class SnakeOld
 
         $this->directions = $this->snakes = [];
 
-        for ($i = 0; $i < $this->players; $i++) {
+        for ($i = 0; $i < $this->playersCount; $i++) {
             $this->directions[] = NULL;
 
             $this->snakes[] = [[
-                                   (int)(($i + 1) * ($this->width / ($this->players + 1))),
+                                   (int)(($i + 1) * ($this->width / ($this->playersCount + 1))),
                                    (int)($this->height / 2),
                                ]];
         }
@@ -182,7 +265,11 @@ class SnakeOld
         $this->newFood();
     }
 
-    public function setDirection($direction, $snake = 0)
+    /**
+     * @param string $direction
+     * @param int $snake
+     */
+    public function setDirection(string $direction, int $snake = 0)
     {
         $this->running = true;
 
@@ -216,6 +303,9 @@ class SnakeOld
         } while (!$this->noFoodCollision());
     }
 
+    /**
+     * @return bool
+     */
     public function noFoodCollision()
     {
         foreach ($this->snakes as $snake) {
@@ -229,11 +319,19 @@ class SnakeOld
         return true;
     }
 
-    public function pointIsSame($x, $y)
+    /**
+     * @param array $x
+     * @param array $y
+     * @return bool
+     */
+    public function pointIsSame(array $x, array $y)
     {
         return $x[0] === $y[0] && $x[1] === $y[1];
     }
 
+    /**
+     * @return bool
+     */
     public function step()
     {
         foreach ($this->snakes as $key => $snake) {
@@ -245,7 +343,11 @@ class SnakeOld
         return true;
     }
 
-    public function snakeStep($key)
+    /**
+     * @param int $key
+     * @return bool
+     */
+    public function snakeStep(int $key)
     {
         if ($this->directions[$key] === NULL) {
             return true;
